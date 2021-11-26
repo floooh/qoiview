@@ -5,7 +5,7 @@ A simple .qoi image file viewer on top of the sokol headers.
 QOI: https://github.com/phoboslab/qoi
 Sokol: https://github.com/floooh/sokol
 
-[WASM version](https://floooh.github.io/qoiview/) (see below for build instructions)
+[WASM version](https://floooh.github.io/qoiview/qoiview.html) (see below for build instructions)
 
 ## Clone:
 
@@ -76,7 +76,7 @@ To run the compilation result in the system web browser:
 > emrun qoiview.html
 ```
 
-...which should look like [this](https://floooh.github.io/qoiview/).
+...which should look like [this](https://floooh.github.io/qoiview/qoiview.html).
 
 (this procedure should also work on Windows with ```make``` in the path, but
 is currently untested)
