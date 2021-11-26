@@ -70,41 +70,66 @@ static void move(float dx, float dy) {
     state.offset.y += dy;
 }
 
+static void create_image(void* ptr, size_t size) {
+    state.file.qoi_decode_failed = false;
+    if (state.img.id != SG_INVALID_ID) {
+        sg_destroy_image(state.img);
+        state.img.id = SG_INVALID_ID;
+    }
+    int width, height;
+    void* pixels = qoi_decode(ptr, (int)size, &width, &height, 4);
+    if (!pixels) {
+        state.file.qoi_decode_failed = true;
+        return;
+    }
+    state.width = (float) width;
+    state.height = (float) height;        
+    reset_offset_scale();
+    state.img = sg_make_image(&(sg_image_desc){
+        .pixel_format = SG_PIXELFORMAT_RGBA8,
+        .width = width,
+        .height = height,
+        .mag_filter = SG_FILTER_NEAREST,
+        .min_filter = SG_FILTER_LINEAR,
+        .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+        .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
+        .data.subimage[0][0] = {
+            .ptr = pixels,
+            .size = width * height * 4
+        }
+    });
+    free(pixels);
+}
+
 static void load_callback(const sfetch_response_t* response) {
     if (response->fetched) {
         state.file.error = SFETCH_ERROR_NO_ERROR;
-        state.file.qoi_decode_failed = false;
-        if (state.img.id != SG_INVALID_ID) {
-            sg_destroy_image(state.img);
-        }
-        int width, height;
-        void* pixels = qoi_decode(response->buffer_ptr, (int)response->fetched_size, &width, &height, 4);
-        if (!pixels) {
-            state.file.qoi_decode_failed = true;
-            return;
-        }
-        state.width = (float) width;
-        state.height = (float) height;        
-        reset_offset_scale();
-        state.img = sg_make_image(&(sg_image_desc){
-            .pixel_format = SG_PIXELFORMAT_RGBA8,
-            .width = width,
-            .height = height,
-            .mag_filter = SG_FILTER_NEAREST,
-            .min_filter = SG_FILTER_LINEAR,
-            .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
-            .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
-            .data.subimage[0][0] = {
-                .ptr = pixels,
-                .size = width * height * 4
-            }
-        });
-        free(pixels);
+        create_image(response->buffer_ptr, response->fetched_size);
     }
     else if (response->failed) {
         state.file.error = response->error_code;
     }
 }
+
+#if defined(__EMSCRIPTEN__)
+static void emsc_dropped_file_callback(const sapp_html5_fetch_response* response) {
+    if (response->succeeded) {
+        state.file.error = SFETCH_ERROR_NO_ERROR;
+        create_image(response->buffer_ptr, response->fetched_size);
+    }
+    else {
+        switch (response->error_code) {
+            case SAPP_HTML5_FETCH_ERROR_BUFFER_TOO_SMALL:
+                state.file.error = SFETCH_ERROR_BUFFER_TOO_SMALL;
+                break;
+            case SAPP_HTML5_FETCH_ERROR_OTHER:
+                state.file.error = SFETCH_ERROR_FILE_NOT_FOUND;
+                break;
+            default: break;
+        }
+    }
+}
+#endif
 
 static void start_load(const char* path) {
     sfetch_send(&(sfetch_request_t){
@@ -113,6 +138,33 @@ static void start_load(const char* path) {
         .buffer_ptr = state.file.buf,
         .buffer_size = sizeof(state.file.buf)
     });
+}
+
+static void start_load_dropped_file(void) {
+    #if defined(__EMSCRIPTEN__)
+        sapp_html5_fetch_dropped_file(&(sapp_html5_fetch_request){
+            .dropped_file_index = 0,
+            .callback = emsc_dropped_file_callback,
+            .buffer_ptr = state.file.buf,
+            .buffer_size = sizeof(state.file.buf)
+        });
+    #else
+        const char* path = sapp_get_dropped_file_path(0);
+        start_load_file(path);
+    #endif
+}
+
+static const char* error_as_string(void) {
+    if (state.file.qoi_decode_failed) {
+        return "Not a valid .qoi file (decoding failed)";
+    }
+    else switch (state.file.error) {
+        case SFETCH_ERROR_FILE_NOT_FOUND: return "File not found";
+        case SFETCH_ERROR_BUFFER_TOO_SMALL: return "Image file too big";
+        case SFETCH_ERROR_UNEXPECTED_EOF: return "Unexpected EOF";
+        case SFETCH_ERROR_INVALID_HTTP_STATUS: return "Invalid HTTP status";
+        default: return "Unknown error";
+    }
 }
 
 static void init(void) {
@@ -142,6 +194,9 @@ static void frame(void) {
     sdtx_canvas(disp_w * 0.5f, disp_h * 0.5f);
     sdtx_origin(2.0f, 2.0f);
     if (state.img.id == SG_INVALID_ID) {
+        if ((state.file.error != SFETCH_ERROR_NO_ERROR) || (state.file.qoi_decode_failed)) {
+            sdtx_printf("ERROR: %s\n\n\n", error_as_string());
+        }
         sdtx_printf("Drag'n'drop .qoi image into window\n\n\n"
                     "Left mouse button to drag.\n\n"
                     "Mousewheel to zoom\n\n"
@@ -177,7 +232,7 @@ static void frame(void) {
 static void event(const sapp_event* ev) {
     switch (ev->type) {
         case SAPP_EVENTTYPE_FILES_DROPPED:
-            start_load(sapp_get_dropped_file_path(0));
+            start_load_dropped_file();
             break;
         case SAPP_EVENTTYPE_KEY_DOWN:
             if (ev->key_code == SAPP_KEYCODE_SPACE) {
@@ -220,5 +275,6 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         .window_title = "qoiview",
         .enable_dragndrop = true,
         .icon.sokol_default = true,
+        .gl_force_gles2 = true,
     };
 }

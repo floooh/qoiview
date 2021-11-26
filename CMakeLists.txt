@@ -29,7 +29,7 @@ endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     target_link_options(qoiview PRIVATE --shell-file ../shell.html)
-    target_link_options(qoiview PRIVATE -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
+    target_link_options(qoiview PRIVATE -sINITIAL_MEMORY=33554432 -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
 endif()
 
 if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten)
