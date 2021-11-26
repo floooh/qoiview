@@ -49,8 +49,8 @@ On Linux and macOS:
 
 On Windows with the Visual Studio toolchain the exe is in a subdirectory:
 ```bash
-> Debug\demo.exe file=../baboon.qoi
-> MinSizeRel\demo.exe file=../baboon.qoi
+> Debug\qoiview.exe file=../baboon.qoi
+> MinSizeRel\qoiview.exe file=../baboon.qoi
 ```
 
 ## Build and Run WASM/HTML version via Emscripten (Linux, macOS)
