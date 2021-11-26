@@ -131,7 +131,7 @@ static void emsc_dropped_file_callback(const sapp_html5_fetch_response* response
 }
 #endif
 
-static void start_load(const char* path) {
+static void start_load_file(const char* path) {
     sfetch_send(&(sfetch_request_t){
         .path = path,
         .callback = load_callback,
@@ -181,7 +181,7 @@ static void init(void) {
     };
 
     if (sargs_exists("file")) {
-        start_load(sargs_value("file"));
+        start_load_file(sargs_value("file"));
     }
 }
 
