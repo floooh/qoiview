@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
+set(CMAKE_C_STANDARD 99)
 project(qoiview)
-set(CMAKE_C_STANDARD 11)
 if (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
 endif()
