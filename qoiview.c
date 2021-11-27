@@ -33,15 +33,17 @@
 #define MIN_SCALE (0.25f)
 
 static struct {
-    sg_pass_action pass_action;
-    sg_image img;
-    float width;
-    float height;
-    float scale;
     struct {
-        float x;
-        float y;
-    } offset;
+        sg_image img;
+        sgl_pipeline pip;
+        float width;
+        float height;
+        float scale;
+        struct { float x, y; } offset;
+        struct { float r, g, b; } color;
+    } image;
+    sg_pass_action pass_action;
+    sg_image checkerboard_img;
     struct {
         sfetch_error_t error;
         bool qoi_decode_failed;
@@ -49,32 +51,36 @@ static struct {
     } file;
 } state;
 
-static void reset_offset_scale(void) {
-    state.scale = 1.0f;
-    state.offset.x = 0.0f;
-    state.offset.y = 0.0f;
+static void reset_image_params(void) {
+    state.image.scale = 1.0f;
+    state.image.offset.x = 0.0f;
+    state.image.offset.y = 0.0f;
+    state.image.color.r = 1.0f;
+    state.image.color.g = 1.0f;
+    state.image.color.b = 1.0f;
 }
 
 static void scale(float d) {
-    state.scale += d;
-    if (state.scale > MAX_SCALE) {
-        state.scale = MAX_SCALE;
+    state.image.scale += d;
+    if (state.image.scale > MAX_SCALE) {
+        state.image.scale = MAX_SCALE;
     }
-    else if (state.scale < MIN_SCALE) {
-        state.scale = MIN_SCALE;
+    else if (state.image.scale < MIN_SCALE) {
+        state.image.scale = MIN_SCALE;
     }
 }
 
 static void move(float dx, float dy) {
-    state.offset.x += dx;
-    state.offset.y += dy;
+    state.image.offset.x += dx;
+    state.image.offset.y += dy;
 }
 
 static void create_image(void* ptr, size_t size) {
+    reset_image_params();
     state.file.qoi_decode_failed = false;
-    if (state.img.id != SG_INVALID_ID) {
-        sg_destroy_image(state.img);
-        state.img.id = SG_INVALID_ID;
+    if (state.image.img.id != SG_INVALID_ID) {
+        sg_destroy_image(state.image.img);
+        state.image.img.id = SG_INVALID_ID;
     }
     int width, height;
     void* pixels = qoi_decode(ptr, (int)size, &width, &height, 4);
@@ -82,10 +88,9 @@ static void create_image(void* ptr, size_t size) {
         state.file.qoi_decode_failed = true;
         return;
     }
-    state.width = (float) width;
-    state.height = (float) height;        
-    reset_offset_scale();
-    state.img = sg_make_image(&(sg_image_desc){
+    state.image.width = (float) width;
+    state.image.height = (float) height;        
+    state.image.img = sg_make_image(&(sg_image_desc){
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .width = width,
         .height = height,
@@ -170,7 +175,7 @@ static const char* error_as_string(void) {
 static void init(void) {
     sg_setup(&(sg_desc){ .context = sapp_sgcontext() });
     sgl_setup(&(sgl_desc_t){0});
-    sdtx_setup(&(sdtx_desc_t){ .fonts[0] = sdtx_font_z1013() });
+    sdtx_setup(&(sdtx_desc_t){ .fonts[0] = sdtx_font_cpc() });
     sfetch_setup(&(sfetch_desc_t){
         .max_requests = 1,
         .num_channels = 1,
@@ -179,10 +184,39 @@ static void init(void) {
     state.pass_action = (sg_pass_action){
         .colors[0] = { .action = SG_ACTION_CLEAR, .value = { 0.0f, 0.0f, 0.0f, 1.0f }}
     };
-
     if (sargs_exists("file")) {
         start_load_file(sargs_value("file"));
     }
+
+    // create a pipeline object with alpha blending for rendering the loaded image
+    state.image.pip = sgl_make_pipeline(&(sg_pipeline_desc){
+        .colors[0] = {
+            .write_mask = SG_COLORMASK_RGB,
+            .blend = {
+                .enabled = true,
+                .src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+                .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            }
+        }
+    });
+
+    // texture and pipeline for rendering checkboard background
+    uint32_t pixels[4][4];
+    for (uint32_t y = 0; y < 4; y++) {
+        for (uint32_t x = 0; x < 4; x++) {
+            pixels[y][x] = ((x ^ y) & 1) ? 0xFF666666 : 0xFF333333;
+        }
+    }
+    state.checkerboard_img = sg_make_image(&(sg_image_desc){
+        .width = 4,
+        .height = 4,
+        .pixel_format = SG_PIXELFORMAT_RGBA8,
+        .min_filter = SG_FILTER_NEAREST,
+        .mag_filter = SG_FILTER_NEAREST,
+        .wrap_u = SG_WRAP_REPEAT,
+        .wrap_v = SG_WRAP_REPEAT,
+        .data.subimage[0][0] = SG_RANGE(pixels)
+    });
 }
 
 static void frame(void) {
@@ -191,29 +225,55 @@ static void frame(void) {
     const float disp_w = sapp_widthf();
     const float disp_h = sapp_heightf();
 
-    sdtx_canvas(disp_w * 0.5f, disp_h * 0.5f);
-    sdtx_origin(2.0f, 2.0f);
-    if (state.img.id == SG_INVALID_ID) {
+    sgl_defaults();
+    sgl_enable_texture();
+    sgl_matrix_mode_projection();
+    sgl_ortho(-disp_w*0.5f, disp_w*0.5f, disp_h*0.5f, -disp_h*0.5f, -1.0f, +1.0f);
+
+    // draw checkerboard background
+    {
+        const float x0 = -disp_w * 0.5f;
+        const float x1 = x0 + disp_w;
+        const float y0 = -disp_h * 0.5f;
+        const float y1 = y0 + disp_w;
+
+        const float u0 = (x0 / 32.0f);
+        const float u1 = (x1 / 32.0f);
+        const float v0 = (y0 / 32.0f);
+        const float v1 = (y1 / 32.0f);
+
+        sgl_texture(state.checkerboard_img);
+        sgl_begin_quads();
+        sgl_v2f_t2f(x0, y0, u0, v0);
+        sgl_v2f_t2f(x1, y0, u1, v0);
+        sgl_v2f_t2f(x1, y1, u1, v1);
+        sgl_v2f_t2f(x0, y1, u0, v1);
+        sgl_end();
+    }
+
+    if (state.image.img.id == SG_INVALID_ID) {
+        // draw instructions
+        sdtx_canvas(disp_w * 0.5f, disp_h * 0.5f);
+        sdtx_origin(2.0f, 2.0f);
         if ((state.file.error != SFETCH_ERROR_NO_ERROR) || (state.file.qoi_decode_failed)) {
             sdtx_printf("ERROR: %s\n\n\n", error_as_string());
         }
         sdtx_printf("Drag'n'drop .qoi image into window\n\n\n"
-                    "Left mouse button to drag.\n\n"
-                    "Mousewheel to zoom\n\n"
-                    "Spacebar to reset\n\n");
+                    "LMB: drag image\n\n"
+                    "Wheel: zoom image\n\n"
+                    "1,2,3: RGB channels on/off\n\n"
+                    "Spacebar: reset\n\n");
     }
     else {
+        // draw actual image
+        const float x0 = ((-state.image.width * 0.5f) * state.image.scale) + state.image.offset.x;
+        const float x1 = x0 + (state.image.width * state.image.scale);
+        const float y0 = ((-state.image.height * 0.5f) * state.image.scale) + state.image.offset.y;
+        const float y1 = y0 + (state.image.height * state.image.scale);
 
-        const float x0 = ((-state.width * 0.5f) * state.scale) + state.offset.x;
-        const float x1 = x0 + (state.width * state.scale);
-        const float y0 = ((-state.height * 0.5f) * state.scale) + state.offset.y;
-        const float y1 = y0 + (state.height * state.scale);
-
-        sgl_defaults();
-        sgl_matrix_mode_projection();
-        sgl_ortho(-disp_w*0.5f, disp_w*0.5f, disp_h*0.5f, -disp_h*0.5f, -1.0f, +1.0f);
-        sgl_enable_texture();
-        sgl_texture(state.img);
+        sgl_texture(state.image.img);
+        sgl_load_pipeline(state.image.pip);
+        sgl_c3f(state.image.color.r, state.image.color.g, state.image.color.b);
         sgl_begin_quads();
         sgl_v2f_t2f(x0, y0, 0.0f, 0.0f);
         sgl_v2f_t2f(x1, y0, 1.0f, 0.0f);
@@ -234,9 +294,13 @@ static void event(const sapp_event* ev) {
         case SAPP_EVENTTYPE_FILES_DROPPED:
             start_load_dropped_file();
             break;
-        case SAPP_EVENTTYPE_KEY_DOWN:
-            if (ev->key_code == SAPP_KEYCODE_SPACE) {
-                reset_offset_scale();
+        case SAPP_EVENTTYPE_KEY_UP:
+            switch (ev->key_code) {
+                case SAPP_KEYCODE_SPACE: reset_image_params(); break;
+                case SAPP_KEYCODE_1: state.image.color.r = (state.image.color.r == 0.0f) ? 1.0f : 0.0f; break;
+                case SAPP_KEYCODE_2: state.image.color.g = (state.image.color.g == 0.0f) ? 1.0f : 0.0f; break;
+                case SAPP_KEYCODE_3: state.image.color.b = (state.image.color.b == 0.0f) ? 1.0f : 0.0f; break;
+                default: break;
             }
             break;
         case SAPP_EVENTTYPE_MOUSE_MOVE:
