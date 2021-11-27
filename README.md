@@ -1,5 +1,7 @@
 # qoiview 
 
+[![build](https://github.com/floooh/qoiview/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/qoiview/actions/workflows/main.yml)
+
 A simple .qoi image file viewer on top of the sokol headers.
 
 QOI: https://github.com/phoboslab/qoi
