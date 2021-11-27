@@ -200,7 +200,7 @@ static void init(void) {
         }
     });
 
-    // texture and pipeline for rendering checkboard background
+    // texture for rendering checkboard background
     uint32_t pixels[4][4];
     for (uint32_t y = 0; y < 4; y++) {
         for (uint32_t x = 0; x < 4; x++) {
@@ -235,7 +235,7 @@ static void frame(void) {
         const float x0 = -disp_w * 0.5f;
         const float x1 = x0 + disp_w;
         const float y0 = -disp_h * 0.5f;
-        const float y1 = y0 + disp_w;
+        const float y1 = y0 + disp_h;
 
         const float u0 = (x0 / 32.0f);
         const float u1 = (x1 / 32.0f);
