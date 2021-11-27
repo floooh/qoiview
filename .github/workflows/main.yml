@@ -27,6 +27,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
         - uses: actions/checkout@v1
+        - name: prepare
+          run:  |
+            sudo apt-get update
+            sudo apt-get install libglu1-mesa-dev mesa-common-dev xorg-dev libasound-dev
         - name: build
           run: |
             mkdir build
