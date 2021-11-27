@@ -46,13 +46,13 @@ NOTE: on Linux you'll also need to install the 'usual' dev-packages needed for X
 
 On Linux and macOS:
 ```bash
-> ./qoiview file=../baboon.qoi
+> ./qoiview file=../images/dice.qoi
 ```
 
 On Windows with the Visual Studio toolchain the exe is in a subdirectory:
 ```bash
-> Debug\qoiview.exe file=../baboon.qoi
-> MinSizeRel\qoiview.exe file=../baboon.qoi
+> Debug\qoiview.exe file=../images/dice.qoi
+> MinSizeRel\qoiview.exe file=../images/dice.qoi
 ```
 
 ## Build and Run WASM/HTML version via Emscripten (Linux, macOS)
