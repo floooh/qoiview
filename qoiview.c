@@ -82,25 +82,25 @@ static void create_image(void* ptr, size_t size) {
         sg_destroy_image(state.image.img);
         state.image.img.id = SG_INVALID_ID;
     }
-    int width, height;
-    void* pixels = qoi_decode(ptr, (int)size, &width, &height, 4);
+    qoi_desc qoi;
+    void* pixels = qoi_decode(ptr, (int)size, &qoi, 4);
     if (!pixels) {
         state.file.qoi_decode_failed = true;
         return;
     }
-    state.image.width = (float) width;
-    state.image.height = (float) height;        
+    state.image.width = (float) qoi.width;
+    state.image.height = (float) qoi.height;        
     state.image.img = sg_make_image(&(sg_image_desc){
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .width = width,
-        .height = height,
+        .width = qoi.width,
+        .height = qoi.height,
         .mag_filter = SG_FILTER_NEAREST,
         .min_filter = SG_FILTER_LINEAR,
         .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
         .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .data.subimage[0][0] = {
             .ptr = pixels,
-            .size = width * height * 4
+            .size = qoi.width * qoi.height * 4
         }
     });
     free(pixels);
