@@ -40,11 +40,11 @@ To build a Release version on Windows with the VisualStudio toolchain:
 > cmake --build . --config MinSizeRel
 ```
 
-NOTE: on Linux you'll also need to install the 'usual' dev-packages needed for X11+GL development.
+NOTE: on Linux you'll also need to install the 'usual' dev-packages needed for X11+GL development. On OpenBSD, it is assumed you have X installed.
 
 ## Run:
 
-On Linux and macOS:
+On Linux, OpenBSD and macOS:
 ```bash
 > ./qoiview file=../images/dice.qoi
 ```
