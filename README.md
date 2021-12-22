@@ -44,7 +44,7 @@ NOTE: on Linux you'll also need to install the 'usual' dev-packages needed for X
 
 ## Run:
 
-On Linux, OpenBSD macOS:
+On Linux, OpenBSD and macOS:
 ```bash
 > ./qoiview file=../images/dice.qoi
 ```
