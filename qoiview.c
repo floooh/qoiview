@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define MAX_FILE_SIZE (10 * 1024 * 1024)
+#define MAX_FILE_SIZE (300 * 1024 * 1024)
 #define MAX_SCALE (8.0f)
 #define MIN_SCALE (0.25f)
 
@@ -71,8 +71,8 @@ static void scale(float d) {
 }
 
 static void move(float dx, float dy) {
-    state.image.offset.x += dx;
-    state.image.offset.y += dy;
+    state.image.offset.x += (dx / state.image.scale);
+    state.image.offset.y += (dy / state.image.scale);
 }
 
 static void create_image(void* ptr, size_t size) {
@@ -266,9 +266,9 @@ static void frame(void) {
     }
     else {
         // draw actual image
-        const float x0 = ((-state.image.width * 0.5f) * state.image.scale) + state.image.offset.x;
+        const float x0 = ((-state.image.width * 0.5f) * state.image.scale) + (state.image.offset.x * state.image.scale);
         const float x1 = x0 + (state.image.width * state.image.scale);
-        const float y0 = ((-state.image.height * 0.5f) * state.image.scale) + state.image.offset.y;
+        const float y0 = ((-state.image.height * 0.5f) * state.image.scale) + (state.image.offset.y * state.image.scale);
         const float y1 = y0 + (state.image.height * state.image.scale);
 
         sgl_texture(state.image.img);
