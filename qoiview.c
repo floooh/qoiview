@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define MAX_FILE_SIZE (300 * 1024 * 1024)
+#define MAX_FILE_SIZE (48 * 1024 * 1024)
 #define MAX_SCALE (8.0f)
 #define MIN_SCALE (0.25f)
 
