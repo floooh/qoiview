@@ -24,7 +24,7 @@ else()
     elseif (CMAKE_SYSTEM_NAME STREQUAL Emscripten)
         set(CMAKE_EXECUTABLE_SUFFIX ".html")
         target_link_options(qoiview PRIVATE --shell-file ../sokol/shell.html)
-        target_link_options(qoiview PRIVATE -sINITIAL_MEMORY=33554432 -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
+        target_link_options(qoiview PRIVATE -sINITIAL_MEMORY=67108864 -sNO_FILESYSTEM=1 -sASSERTIONS=0 -sMALLOC=emmalloc --closure=1)
     endif()
 endif()
 
