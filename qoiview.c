@@ -24,6 +24,7 @@
 #include "sokol/sokol_gl.h"
 #include "sokol/sokol_fetch.h"
 #include "sokol/sokol_debugtext.h"
+#include "sokol/sokol_log.h"
 #include "sokol/sokol_glue.h"
 #include <stdint.h>
 #include <stdlib.h>
@@ -75,7 +76,7 @@ static void move(float dx, float dy) {
     state.image.offset.y += (dy / state.image.scale);
 }
 
-static void create_image(void* ptr, size_t size) {
+static void create_image(const void* ptr, size_t size) {
     reset_image_params();
     state.file.qoi_decode_failed = false;
     if (state.image.img.id != SG_INVALID_ID) {
@@ -89,7 +90,7 @@ static void create_image(void* ptr, size_t size) {
         return;
     }
     state.image.width = (float) qoi.width;
-    state.image.height = (float) qoi.height;        
+    state.image.height = (float) qoi.height;
     state.image.img = sg_make_image(&(sg_image_desc){
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .width = qoi.width,
@@ -109,7 +110,7 @@ static void create_image(void* ptr, size_t size) {
 static void load_callback(const sfetch_response_t* response) {
     if (response->fetched) {
         state.file.error = SFETCH_ERROR_NO_ERROR;
-        create_image(response->buffer_ptr, response->fetched_size);
+        create_image(response->data.ptr, response->data.size);
     }
     else if (response->failed) {
         state.file.error = response->error_code;
@@ -140,8 +141,7 @@ static void start_load_file(const char* path) {
     sfetch_send(&(sfetch_request_t){
         .path = path,
         .callback = load_callback,
-        .buffer_ptr = state.file.buf,
-        .buffer_size = sizeof(state.file.buf)
+        .buffer = SFETCH_RANGE(state.file.buf),
     });
 }
 
@@ -173,13 +173,22 @@ static const char* error_as_string(void) {
 }
 
 static void init(void) {
-    sg_setup(&(sg_desc){ .context = sapp_sgcontext() });
-    sgl_setup(&(sgl_desc_t){0});
-    sdtx_setup(&(sdtx_desc_t){ .fonts[0] = sdtx_font_cpc() });
+    sg_setup(&(sg_desc){
+        .context = sapp_sgcontext(),
+        .logger.func = slog_func,
+    });
+    sgl_setup(&(sgl_desc_t){
+        .logger.func = slog_func,
+    });
+    sdtx_setup(&(sdtx_desc_t){
+        .fonts[0] = sdtx_font_cpc(),
+        .logger.func = slog_func,
+    });
     sfetch_setup(&(sfetch_desc_t){
         .max_requests = 1,
         .num_channels = 1,
         .num_lanes = 1,
+        .logger.func = slog_func,
     });
     state.pass_action = (sg_pass_action){
         .colors[0] = { .action = SG_ACTION_CLEAR, .value = { 0.0f, 0.0f, 0.0f, 1.0f }}
@@ -340,5 +349,6 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         .enable_dragndrop = true,
         .icon.sokol_default = true,
         .gl_force_gles2 = true,
+        .logger.func = slog_func,
     };
 }

@@ -5,3 +5,4 @@ cp ../../sokol/sokol_fetch.h .
 cp ../../sokol/sokol_gfx.h .
 cp ../../sokol/util/sokol_gl.h .
 cp ../../sokol/sokol_glue.h .
+cp ../../sokol/sokol_log.h .
