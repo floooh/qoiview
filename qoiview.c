@@ -14,7 +14,7 @@
 #elif defined(_WIN32)
 #define SOKOL_D3D11
 #elif defined(__EMSCRIPTEN__)
-#define SOKOL_GLES2
+#define SOKOL_GLES3
 #else
 #define SOKOL_GLCORE33
 #endif
@@ -36,6 +36,7 @@
 static struct {
     struct {
         sg_image img;
+        sg_sampler smp;
         sgl_pipeline pip;
         float width;
         float height;
@@ -44,7 +45,10 @@ static struct {
         struct { float r, g, b; } color;
     } image;
     sg_pass_action pass_action;
-    sg_image checkerboard_img;
+    struct {
+        sg_image img;
+        sg_sampler smp;
+    } checkerboard;
     struct {
         sfetch_error_t error;
         bool qoi_decode_failed;
@@ -95,10 +99,6 @@ static void create_image(const void* ptr, size_t size) {
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .width = qoi.width,
         .height = qoi.height,
-        .mag_filter = SG_FILTER_NEAREST,
-        .min_filter = SG_FILTER_LINEAR,
-        .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
-        .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
         .data.subimage[0][0] = {
             .ptr = pixels,
             .size = qoi.width * qoi.height * 4
@@ -191,11 +191,19 @@ static void init(void) {
         .logger.func = slog_func,
     });
     state.pass_action = (sg_pass_action){
-        .colors[0] = { .action = SG_ACTION_CLEAR, .value = { 0.0f, 0.0f, 0.0f, 1.0f }}
+        .colors[0] = { .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.0f, 0.0f, 0.0f, 1.0f }}
     };
     if (sargs_exists("file")) {
         start_load_file(sargs_value("file"));
     }
+
+    // a sampler object for nearest mag filter and linear min filter
+    state.image.smp = sg_make_sampler(&(sg_sampler_desc){
+        .mag_filter = SG_FILTER_NEAREST,
+        .min_filter = SG_FILTER_LINEAR,
+        .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+        .wrap_v = SG_WRAP_CLAMP_TO_EDGE,
+    });
 
     // create a pipeline object with alpha blending for rendering the loaded image
     state.image.pip = sgl_make_pipeline(&(sg_pipeline_desc){
@@ -209,22 +217,24 @@ static void init(void) {
         }
     });
 
-    // texture for rendering checkboard background
+    // texture and sampler for rendering checkboard background
     uint32_t pixels[4][4];
     for (uint32_t y = 0; y < 4; y++) {
         for (uint32_t x = 0; x < 4; x++) {
             pixels[y][x] = ((x ^ y) & 1) ? 0xFF666666 : 0xFF333333;
         }
     }
-    state.checkerboard_img = sg_make_image(&(sg_image_desc){
+    state.checkerboard.img = sg_make_image(&(sg_image_desc){
         .width = 4,
         .height = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
+        .data.subimage[0][0] = SG_RANGE(pixels)
+    });
+    state.checkerboard.smp = sg_make_sampler(&(sg_sampler_desc){
         .min_filter = SG_FILTER_NEAREST,
         .mag_filter = SG_FILTER_NEAREST,
         .wrap_u = SG_WRAP_REPEAT,
         .wrap_v = SG_WRAP_REPEAT,
-        .data.subimage[0][0] = SG_RANGE(pixels)
     });
 }
 
@@ -251,7 +261,7 @@ static void frame(void) {
         const float v0 = (y0 / 32.0f);
         const float v1 = (y1 / 32.0f);
 
-        sgl_texture(state.checkerboard_img);
+        sgl_texture(state.checkerboard.img, state.checkerboard.smp);
         sgl_begin_quads();
         sgl_v2f_t2f(x0, y0, u0, v0);
         sgl_v2f_t2f(x1, y0, u1, v0);
@@ -280,7 +290,7 @@ static void frame(void) {
         const float y0 = ((-state.image.height * 0.5f) * state.image.scale) + (state.image.offset.y * state.image.scale);
         const float y1 = y0 + (state.image.height * state.image.scale);
 
-        sgl_texture(state.image.img);
+        sgl_texture(state.image.img, state.image.smp);
         sgl_load_pipeline(state.image.pip);
         sgl_c3f(state.image.color.r, state.image.color.g, state.image.color.b);
         sgl_begin_quads();
@@ -348,7 +358,6 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         .window_title = "qoiview",
         .enable_dragndrop = true,
         .icon.sokol_default = true,
-        .gl_force_gles2 = true,
         .logger.func = slog_func,
     };
 }
