@@ -4,6 +4,7 @@ set(CMAKE_C_STANDARD 99)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
     add_executable(qoiview WIN32 qoiview.c)
+    target_link_libraries(qoiview PRIVATE d3d11)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT qoiview)
 else()
     add_executable(qoiview qoiview.c)
@@ -29,5 +30,16 @@ else()
 endif()
 
 if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten AND NOT CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
-    target_link_options(qoiview PRIVATE LINKER:-dead_strip)
+    find_program(LLVM_STRIP_EXECUTABLE NAMES llvm-strip PATHS ${LLVM_TOOLS_BINARY_DIR})
+    if (LLVM_STRIP_EXECUTABLE)
+        message(STATUS "Found llvm-strip: ${LLVM_STRIP_EXECUTABLE}")
+        add_custom_command(
+            TARGET qoiview POST_BUILD
+            COMMAND ${LLVM_STRIP_EXECUTABLE} $<TARGET_FILE:qoiview>
+            COMMENT "Stripping symbols from target"
+        )
+    else()
+        message(STATUS "llvm-strip not found. Using dead_strip linker flag")
+	target_link_options(qoiview PRIVATE LINKER:-dead_strip)
+    endif()
 endif()
