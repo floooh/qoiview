@@ -40,6 +40,6 @@ if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL Emscr
         )
     else()
         message(STATUS "llvm-strip not found. Using dead_strip linker flag")
-	    target_link_options(qoiview PRIVATE LINKER:-dead_strip)
+	target_link_options(qoiview PRIVATE LINKER:-dead_strip)
     endif()
 endif()
