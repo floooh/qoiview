@@ -174,7 +174,7 @@ static const char* error_as_string(void) {
 
 static void init(void) {
     sg_setup(&(sg_desc){
-        .context = sapp_sgcontext(),
+        .environment = sglue_environment(),
         .logger.func = slog_func,
     });
     sgl_setup(&(sgl_desc_t){
@@ -301,7 +301,7 @@ static void frame(void) {
         sgl_end();
     }
 
-    sg_begin_default_passf(&state.pass_action, disp_w, disp_h);
+    sg_begin_pass(&(sg_pass){ .action = state.pass_action, .swapchain = sglue_swapchain() });
     sgl_draw();
     sdtx_draw();
     sg_end_pass();
