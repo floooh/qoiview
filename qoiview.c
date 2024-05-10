@@ -16,7 +16,7 @@
 #elif defined(__EMSCRIPTEN__)
 #define SOKOL_GLES3
 #else
-#define SOKOL_GLCORE33
+#define SOKOL_GLCORE
 #endif
 #include "sokol/sokol_app.h"
 #include "sokol/sokol_gfx.h"
