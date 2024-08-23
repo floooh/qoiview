@@ -66,7 +66,7 @@ static void reset_image_params(void) {
 }
 
 static void scale(float d) {
-    state.image.scale += d;
+    state.image.scale *= expf(d);
     if (state.image.scale > MAX_SCALE) {
         state.image.scale = MAX_SCALE;
     }
@@ -121,7 +121,7 @@ static void load_callback(const sfetch_response_t* response) {
 static void emsc_dropped_file_callback(const sapp_html5_fetch_response* response) {
     if (response->succeeded) {
         state.file.error = SFETCH_ERROR_NO_ERROR;
-        create_image(response->buffer_ptr, response->fetched_size);
+        create_image(response->data.ptr, response->data.size);
     }
     else {
         switch (response->error_code) {
@@ -150,8 +150,7 @@ static void start_load_dropped_file(void) {
         sapp_html5_fetch_dropped_file(&(sapp_html5_fetch_request){
             .dropped_file_index = 0,
             .callback = emsc_dropped_file_callback,
-            .buffer_ptr = state.file.buf,
-            .buffer_size = sizeof(state.file.buf)
+            .buffer = SAPP_RANGE(state.file.buf),
         });
     #else
         const char* path = sapp_get_dropped_file_path(0);
