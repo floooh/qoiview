@@ -66,7 +66,7 @@ static void reset_image_params(void) {
 }
 
 static void scale(float d) {
-    state.image.scale += d;
+    state.image.scale *= expf(d);
     if (state.image.scale > MAX_SCALE) {
         state.image.scale = MAX_SCALE;
     }
