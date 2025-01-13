@@ -54,6 +54,8 @@ static struct {
         bool qoi_decode_failed;
         uint8_t buf[MAX_FILE_SIZE];
     } file;
+    int argc;
+    char** argv;
 } state;
 
 static void reset_image_params(void) {
@@ -172,6 +174,10 @@ static const char* error_as_string(void) {
 }
 
 static void init(void) {
+    sargs_setup(&(sargs_desc){
+        .argc = state.argc,
+        .argv = state.argv,
+    });
     sg_setup(&(sg_desc){
         .environment = sglue_environment(),
         .logger.func = slog_func,
@@ -193,7 +199,15 @@ static void init(void) {
         .colors[0] = { .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.0f, 0.0f, 0.0f, 1.0f }}
     };
     if (sargs_exists("file")) {
+        // NOTE: to use backslash path separators on Windows with the 'file=[path]'
+        // arg format expected by sokol-args, use escaped backslashes, e.g.
+        // `qoiview file=images\\baboon.qoi`
         start_load_file(sargs_value("file"));
+    } else if (state.argc == 2) {
+        // alternatively, if only one arg is provided, assume that this is a file path
+        // (this also works on Windows with single-backslash path separators):
+        // `qoiview images\baboon.qoi`)
+        start_load_file(state.argv[1]);
     }
 
     // a sampler object for nearest mag filter and linear min filter
@@ -343,10 +357,8 @@ static void cleanup(void) {
 }
 
 sapp_desc sokol_main(int argc, char* argv[]) {
-    sargs_setup(&(sargs_desc){
-        .argc = argc,
-        .argv = argv,
-    });
+    state.argc = argc;
+    state.argv = argv;
     return (sapp_desc) {
         .init_cb = init,
         .frame_cb = frame,

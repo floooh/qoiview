@@ -9,6 +9,17 @@ Sokol: https://github.com/floooh/sokol
 
 [WASM version](https://floooh.github.io/qoiview/qoiview.html) (see below for build instructions)
 
+Native invocation examples:
+
+- `qoiview images/baboon.qoi`
+- `qoiview file=images/baboon.qoi`
+
+...or on Windows with backslashes (note that the form `file=path` needs double backslashes since
+a single backslash is processed as escape sequence by sokol_args.h):
+
+- `qoiview images\baboon.qoi`
+- `qoiview file=images\\baboon.qoi`
+
 ## Clone:
 
 ```bash
