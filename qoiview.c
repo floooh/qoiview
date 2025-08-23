@@ -36,6 +36,7 @@
 static struct {
     struct {
         sg_image img;
+        sg_view tex_view;
         sg_sampler smp;
         sgl_pipeline pip;
         float width;
@@ -47,6 +48,7 @@ static struct {
     sg_pass_action pass_action;
     struct {
         sg_image img;
+        sg_view tex_view;
         sg_sampler smp;
     } checkerboard;
     struct {
@@ -89,6 +91,10 @@ static void create_image(const void* ptr, size_t size) {
         sg_destroy_image(state.image.img);
         state.image.img.id = SG_INVALID_ID;
     }
+    if (state.image.tex_view.id != SG_INVALID_ID) {
+        sg_destroy_view(state.image.tex_view);
+        state.image.tex_view.id = SG_INVALID_ID;
+    }
     qoi_desc qoi;
     void* pixels = qoi_decode(ptr, (int)size, &qoi, 4);
     if (!pixels) {
@@ -105,6 +111,9 @@ static void create_image(const void* ptr, size_t size) {
             .ptr = pixels,
             .size = qoi.width * qoi.height * 4
         }
+    });
+    state.image.tex_view = sg_make_view(&(sg_view_desc){
+        .texture.image = state.image.img,
     });
     free(pixels);
 }
@@ -243,6 +252,9 @@ static void init(void) {
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .data.subimage[0][0] = SG_RANGE(pixels)
     });
+    state.checkerboard.tex_view = sg_make_view(&(sg_view_desc){
+        .texture.image = state.checkerboard.img,
+    });
     state.checkerboard.smp = sg_make_sampler(&(sg_sampler_desc){
         .min_filter = SG_FILTER_NEAREST,
         .mag_filter = SG_FILTER_NEAREST,
@@ -274,7 +286,7 @@ static void frame(void) {
         const float v0 = (y0 / 32.0f);
         const float v1 = (y1 / 32.0f);
 
-        sgl_texture(state.checkerboard.img, state.checkerboard.smp);
+        sgl_texture(state.checkerboard.tex_view, state.checkerboard.smp);
         sgl_begin_quads();
         sgl_v2f_t2f(x0, y0, u0, v0);
         sgl_v2f_t2f(x1, y0, u1, v0);
@@ -303,7 +315,7 @@ static void frame(void) {
         const float y0 = ((-state.image.height * 0.5f) * state.image.scale) + (state.image.offset.y * state.image.scale);
         const float y1 = y0 + (state.image.height * state.image.scale);
 
-        sgl_texture(state.image.img, state.image.smp);
+        sgl_texture(state.image.tex_view, state.image.smp);
         sgl_load_pipeline(state.image.pip);
         sgl_c3f(state.image.color.r, state.image.color.g, state.image.color.b);
         sgl_begin_quads();
