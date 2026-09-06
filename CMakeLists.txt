@@ -29,17 +29,25 @@ else()
     endif()
 endif()
 
-if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten AND NOT CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
+include(CheckIPOSupported)
+check_ipo_supported(RESULT is_IPO_supported)
+if(is_IPO_supported)
+    set_property(TARGET qoiview PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    set_property(TARGET qoiview PROPERTY INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE)
+endif()
+
+if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL Emscripten AND NOT CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
     find_program(LLVM_STRIP_EXECUTABLE NAMES llvm-strip PATHS ${LLVM_TOOLS_BINARY_DIR})
-    if (LLVM_STRIP_EXECUTABLE)
+    if(LLVM_STRIP_EXECUTABLE)
         message(STATUS "Found llvm-strip: ${LLVM_STRIP_EXECUTABLE}")
         add_custom_command(
-            TARGET qoiview POST_BUILD
-            COMMAND ${LLVM_STRIP_EXECUTABLE} $<TARGET_FILE:qoiview>
-            COMMENT "Stripping symbols from target"
+                TARGET qoiview POST_BUILD
+                # Generator expressions support multi-config generators such as Visual Studio
+                COMMAND $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:${LLVM_STRIP_EXECUTABLE}> $<$<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>>:$<TARGET_FILE:qoiview>>
+                COMMENT "Stripping symbols from target"
         )
     else()
         message(STATUS "llvm-strip not found. Using dead_strip linker flag")
-        target_link_options(qoiview PRIVATE LINKER:-dead_strip)
+        target_link_options(qoiview PRIVATE $<$<CONFIG:Release>:LINKER:-dead_strip> $<$<CONFIG:MinSizeRel>:LINKER:-dead_strip>)
     endif()
 endif()
