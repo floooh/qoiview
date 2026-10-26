@@ -107,7 +107,7 @@ static void create_image(const void* ptr, size_t size) {
         .pixel_format = SG_PIXELFORMAT_RGBA8,
         .width = qoi.width,
         .height = qoi.height,
-        .data.mip_levels[0] = {
+        .data = {
             .ptr = pixels,
             .size = qoi.width * qoi.height * 4
         }
@@ -250,7 +250,7 @@ static void init(void) {
         .width = 4,
         .height = 4,
         .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .data.mip_levels[0] = SG_RANGE(pixels)
+        .data = SG_RANGE(pixels)
     });
     state.checkerboard.tex_view = sg_make_view(&(sg_view_desc){
         .texture.image = state.checkerboard.img,

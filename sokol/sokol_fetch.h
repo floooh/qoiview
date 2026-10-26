@@ -75,7 +75,7 @@
 
     (1) initialize sokol-fetch with default parameters (but NOTE that the
         default setup parameters provide a safe-but-slow "serialized"
-        operation). In order to see any logging output in case or errors
+        operation). In order to see any logging output in case of errors
         you should always provide a logging function
         (such as 'slog_func' from sokol_log.h):
 
@@ -1735,7 +1735,9 @@ _SOKOL_PRIVATE bool _sfetch_file_handle_valid(_sfetch_file_handle_t h) {
 
 _SOKOL_PRIVATE uint32_t _sfetch_file_size(_sfetch_file_handle_t h) {
     fseek(h, 0, SEEK_END);
-    return (uint32_t) ftell(h);
+    long fpos = ftell(h);
+    SOKOL_ASSERT(fpos >= 0);
+    return (uint32_t) fpos;
 }
 
 _SOKOL_PRIVATE bool _sfetch_file_read(_sfetch_file_handle_t h, uint32_t offset, uint32_t num_bytes, void* ptr) {
@@ -1849,18 +1851,16 @@ _SOKOL_PRIVATE uint32_t _sfetch_thread_dequeue_incoming(_sfetch_thread_t* thread
     return item;
 }
 
-_SOKOL_PRIVATE bool _sfetch_thread_enqueue_outgoing(_sfetch_thread_t* thread, _sfetch_ring_t* outgoing, uint32_t item) {
+_SOKOL_PRIVATE void _sfetch_thread_enqueue_outgoing(_sfetch_thread_t* thread, _sfetch_ring_t* outgoing, uint32_t item) {
     /* called from thread function */
     SOKOL_ASSERT(thread && thread->valid);
     SOKOL_ASSERT(outgoing && outgoing->buf);
     SOKOL_ASSERT(0 != item);
     pthread_mutex_lock(&thread->outgoing_mutex);
-    bool result = false;
     if (!_sfetch_ring_full(outgoing)) {
         _sfetch_ring_enqueue(outgoing, item);
     }
     pthread_mutex_unlock(&thread->outgoing_mutex);
-    return result;
 }
 
 _SOKOL_PRIVATE void _sfetch_thread_dequeue_outgoing(_sfetch_thread_t* thread, _sfetch_ring_t* outgoing, _sfetch_ring_t* dst) {
@@ -2034,17 +2034,15 @@ _SOKOL_PRIVATE uint32_t _sfetch_thread_dequeue_incoming(_sfetch_thread_t* thread
     return item;
 }
 
-_SOKOL_PRIVATE bool _sfetch_thread_enqueue_outgoing(_sfetch_thread_t* thread, _sfetch_ring_t* outgoing, uint32_t item) {
+_SOKOL_PRIVATE void _sfetch_thread_enqueue_outgoing(_sfetch_thread_t* thread, _sfetch_ring_t* outgoing, uint32_t item) {
     /* called from thread function */
     SOKOL_ASSERT(thread && thread->valid);
     SOKOL_ASSERT(outgoing && outgoing->buf);
     EnterCriticalSection(&thread->outgoing_critsec);
-    bool result = false;
     if (!_sfetch_ring_full(outgoing)) {
         _sfetch_ring_enqueue(outgoing, item);
     }
     LeaveCriticalSection(&thread->outgoing_critsec);
-    return result;
 }
 
 _SOKOL_PRIVATE void _sfetch_thread_dequeue_outgoing(_sfetch_thread_t* thread, _sfetch_ring_t* outgoing, _sfetch_ring_t* dst) {
@@ -2185,7 +2183,8 @@ _SOKOL_PRIVATE void* _sfetch_channel_thread_func(void* arg) {
 
 #if _SFETCH_PLATFORM_EMSCRIPTEN
 EM_JS(void, sfetch_js_send_head_request, (uint32_t slot_id, const char* path_cstr), {
-    const path_str = UTF8ToString(path_cstr);
+    // NOTE: wasm64 compatibility (see: https://github.com/floooh/sokol/pull/1590)
+    const path_str = UTF8ToString(Number(path_cstr));
     fetch(path_str, { method: 'HEAD' }).then((response) => {
         if (response.ok) {
             const content_length = response.headers.get('Content-Length');
@@ -2206,7 +2205,8 @@ EM_JS(void, sfetch_js_send_head_request, (uint32_t slot_id, const char* path_cst
 
 /* if bytes_to_read != 0, a range-request will be sent, otherwise a normal request */
 EM_JS(void, sfetch_js_send_get_request, (uint32_t slot_id, const char* path_cstr, uint32_t offset, uint32_t bytes_to_read, void* buf_ptr, uint32_t buf_size), {
-    const path_str = UTF8ToString(path_cstr);
+    // NOTE: wasm64 compatibility (see: https://github.com/floooh/sokol/pull/1590)
+    const path_str = UTF8ToString(Number(path_cstr));
     const headers = new Headers();
     const range_request = bytes_to_read > 0;
     if (range_request) {
